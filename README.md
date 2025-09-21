@@ -1,1 +1,1 @@
-# gentoo-overlay
+# fnrir's gentoo-overlay
