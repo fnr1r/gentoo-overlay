@@ -1,0 +1,14 @@
+BDEPEND=|| ( dev-lang/zig:0.17[llvm(+)] dev-lang/zig-bin:0.17 ) virtual/pkgconfig
+DEFINED_PHASES=compile configure install prepare setup test unpack
+DEPEND=app-arch/zstd:= sys-libs/ncurses:=[unicode(+)]
+DESCRIPTION=NCurses Disk Usage
+EAPI=8
+HOMEPAGE=https://github.com/BratishkaErik/ncdu
+INHERIT=zig
+KEYWORDS=amd64 ~arm64
+LICENSE=MIT
+RDEPEND=app-arch/zstd:= sys-libs/ncurses:=[unicode(+)]
+SLOT=0
+SRC_URI=https://github.com/BratishkaErik/ncdu/releases/download/v2.12.0/ncdu-2.12.0-src.tar.gz https://codeberg.org/ziglang/translate-c/archive/2.0.0.tar.gz -> translate_c-2.0.0-Q_BUWltOBwA0229IE8wwSxxGzOxyRso3hvcb1nN8oJX_.tar.gz https://codeberg.org/ziglang/arocc/archive/d0c8c4d9c55daa7ef6e40cf0f630a5b5e900989b.tar.gz -> aro-0.0.0-JSD1QtuBNwCASyBtNF3pqTl_W3oAJQGEVyFAtrBSE_Pa.tar.gz
+_eclasses_=multiprocessing	45d0620f25c2f063ad6276ecd9ed9399	toolchain-funcs	58a918e3a42d0156f010dcfd43725be5	edob	357e125b8c5cad0deccb625e537ea831	edo	e472083829a6e7ff43a197cf536728a2	flag-o-matic	fd3558f73f6503093adee69adf41020d	linux-info	efd923656513c879204fec6638eadee5	zig-utils	205682ed306037ae40c7124e160d1bb3	zig	b56db59bd58e88fbdfac7da69274762b
+_md5_=ce9ca18d171bab76cfb8707e91d82ebc
