@@ -72,7 +72,7 @@ IDEPEND="app-eselect/eselect-zig"
 
 DOCS=( "README.md" "doc/build.zig.zon.md" )
 
-PATCHES=( "${FILESDIR}/zig-0.17.0-compiler-rt-crtbegin-name.patch" )
+PATCHES=( "${FILESDIR}"/{zig-0.17.0-compiler-rt-crtbegin-name.patch,0001-feat-Maker-add-fetch-assume-saved.patch} )
 
 # zig.eclass does not set this for us since we use ZIG_OPTIONAL=1
 QA_FLAGS_IGNORED="usr/.*/zig/${PV}/bin/zig"

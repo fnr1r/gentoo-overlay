@@ -1,0 +1,80 @@
+From 7a6a1586a20ddca040f2fb890510cf38f950ce47 Mon Sep 17 00:00:00 2001
+From: fnrir <fnr1r0@protonmail.com>
+Date: Wed, 21 Oct 2026 22:26:15 +0200
+Subject: [PATCH] feat(Maker): add fetch --assume-saved
+
+---
+ lib/compiler/Maker.zig | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/lib/compiler/Maker.zig b/lib/compiler/Maker.zig
+index 526ab1298a..e5c0a76e9e 100644
+--- a/lib/compiler/Maker.zig
++++ b/lib/compiler/Maker.zig
+@@ -1707,6 +1707,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+         no,
+         yes: ?[]const u8,
+         exact: ?[]const u8,
++        assume,
+     } = .no;
+ 
+     var arg_i: usize = 0;
+@@ -1731,6 +1732,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+                 save = .{ .exact = null };
+             } else if (mem.cutPrefix(u8, arg, "--save-exact=")) |rest| {
+                 save = .{ .exact = rest };
++            } else if (mem.eql(u8, arg, "--assume-saved")) {
++                save = .assume;
+             } else {
+                 fatal("unrecognized parameter: {q}", .{arg});
+             }
+@@ -1762,7 +1765,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+ 
+     const local_storage_ptr = switch (save) {
+         .no => null,
+-        .yes, .exact => ls: {
++        .yes, .exact, .assume => ls: {
+             build_root = try findBuildRoot(arena, io, .{ .cwd_path = cwd_path });
+             build_root_initialized = true;
+ 
+@@ -1857,6 +1860,11 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+                 fatal("unable to determine name; fetched package has no build.zig.zon file", .{});
+             break :name fetch.manifest.name;
+         },
++        .assume => name: {
++            if (!fetch.have_manifest)
++                fatal("unable to determine name; fetched package has no build.zig.zon file", .{});
++            break :name fetch.manifest.name;
++        },
+     };
+ 
+     // The name to use in case the manifest file needs to be created now.
+@@ -1902,7 +1910,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+ 
+         switch (save) {
+             .yes => saved_path_or_url = try arena.print("{f}", .{uri}),
+-            .no, .exact => {}, // keep the original URL
++            .no, .exact, .assume => {}, // keep the original URL
+         }
+     }
+ 
+@@ -1930,6 +1938,16 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+ 
+     if (manifest.dependencies.get(name)) |dep| {
+         if (dep.hash) |h| {
++            if (save == .assume) {
++                if (mem.eql(u8, h, package_hash_slice)) {
++                    log.info("fetched existing dependency named {q} from cache", .{name});
++                    process.exit(0);
++                } else {
++                    log.warn("fetched existing dependency named {q} doesn't match zon", .{name});
++                    log.warn("{q}", .{package_hash_slice});
++                    process.exit(1);
++                }
++            }
+             switch (dep.location) {
+                 .url => |u| {
+                     if (mem.eql(u8, h, package_hash_slice) and mem.eql(u8, u, saved_path_or_url)) {
+-- 
+2.56.0
+
