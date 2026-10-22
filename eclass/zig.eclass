@@ -501,7 +501,13 @@ zig_src_unpack() {
 	# 1. Compressed (used for checks and caches)
 	# 2. Folder (used for compilation and system mode)
 	local zig_dep
-	if ver_test "${ZIG_SLOT}" -ge "0.16"; then
+	if ver_test "${ZIG_VER}" -gt "0.17.0"; then
+	    die "Zig 0.17.0 broke Gentoo's zig.eclass. Refusing to waste time."
+	elif ver_test "${ZIG_SLOT}" -ge "0.17"; then
+		(cd "${S}"; for zig_dep in "${zig_deps[@]}"; do
+			ezig fetch --assume-saved "${DISTDIR}/${zig_dep}"
+		done)
+	elif ver_test "${ZIG_SLOT}" -ge "0.16"; then
 		# Two version-specific notes for 0.16.0:
 		# 1. Saves to zig-pkg/ local folder (not configurable).
 		# 2. Regression: needs build.zig to operate.
