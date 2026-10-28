@@ -1,17 +1,77 @@
-From 7a6a1586a20ddca040f2fb890510cf38f950ce47 Mon Sep 17 00:00:00 2001
+From da847e516090bb90cfacc7dca9cb59bc5a6553ed Mon Sep 17 00:00:00 2001
 From: fnrir <fnr1r0@protonmail.com>
 Date: Wed, 21 Oct 2026 22:26:15 +0200
 Subject: [PATCH] feat(Maker): add fetch --assume-saved
 
 ---
- lib/compiler/Maker.zig | 22 ++++++++++++++++++++--
- 1 file changed, 20 insertions(+), 2 deletions(-)
+ lib/compiler/Maker.zig | 68 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 66 insertions(+), 2 deletions(-)
 
 diff --git a/lib/compiler/Maker.zig b/lib/compiler/Maker.zig
-index 526ab1298a..e5c0a76e9e 100644
+index 12df472dea..e29f863163 100644
 --- a/lib/compiler/Maker.zig
 +++ b/lib/compiler/Maker.zig
-@@ -1707,6 +1707,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1656,6 +1656,59 @@ fn configure(graph: *Graph, options: ConfigureOptions) !ScannedConfig {
+     };
+ }
+ 
++const HashMismatchInfo = struct {
++    expected: []const u8,
++    actual: []const u8,
++};
++
++const AssumeSavedCheckError = union(enum) { DepNotSaved, HashMismatch: HashMismatchInfo };
++
++fn assume_saved_check(
++    name: []const u8,
++    package_hash_slice: []const u8,
++    manifest: Package.Manifest,
++) ?AssumeSavedCheckError {
++    const dep = manifest.dependencies.get(name) orelse return .DepNotSaved;
++    const hash = dep.hash orelse return null;
++    if (mem.eql(u8, hash, package_hash_slice)) return null;
++    return .{ .HashMismatch = .{ .expected = package_hash_slice, .actual = hash } };
++}
++
++fn ext_err_hash_mismatch(info: HashMismatchInfo, name: []const u8) void {
++    log.err("dependency {q} hash mismatch!", .{name});
++    log.err("  expected: {s}", .{info.expected});
++    log.err("  actual:   {s}", .{info.actual});
++}
++
++fn ext_assume_saved(
++    io: Io,
++    name: []const u8,
++    package_hash_slice: []const u8,
++    manifest: Package.Manifest,
++    pkg_root: Path,
++) u8 {
++    const chk_err = assume_saved_check(name, package_hash_slice, manifest) orelse {
++        log.info("fetched existing dependency named {q} from cache", .{name});
++        return 0;
++    };
++    switch (chk_err) {
++        .DepNotSaved => log.err("dependency {q} not saved in manifest", .{name}),
++        .HashMismatch => |info| ext_err_hash_mismatch(info, name),
++    }
++    const root_handle = pkg_root.root_dir.handle;
++    const pkg_id = package_hash_slice;
++    if (root_handle.openDir(io, pkg_root.sub_path, .{})) |pkgs_dir| {
++        defer pkgs_dir.close(io);
++        log.info("deleting {s}", .{pkg_id});
++        pkgs_dir.deleteTree(io, pkg_id) catch |err| {
++            log.err("failed to delete: {}", .{err});
++        };
++    } else |err| {
++        log.warn("couldn't open zig-pkgs: {}", .{err});
++    }
++    return 1;
++}
++
+ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+     const environ_map = &graph.environ_map;
+     const io = graph.io;
+@@ -1670,6 +1723,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
          no,
          yes: ?[]const u8,
          exact: ?[]const u8,
@@ -19,7 +79,7 @@ index 526ab1298a..e5c0a76e9e 100644
      } = .no;
  
      var arg_i: usize = 0;
-@@ -1731,6 +1732,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1694,6 +1748,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
                  save = .{ .exact = null };
              } else if (mem.cutPrefix(u8, arg, "--save-exact=")) |rest| {
                  save = .{ .exact = rest };
@@ -28,7 +88,7 @@ index 526ab1298a..e5c0a76e9e 100644
              } else {
                  fatal("unrecognized parameter: {q}", .{arg});
              }
-@@ -1762,7 +1765,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1725,7 +1781,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
  
      const local_storage_ptr = switch (save) {
          .no => null,
@@ -37,7 +97,7 @@ index 526ab1298a..e5c0a76e9e 100644
              build_root = try findBuildRoot(arena, io, .{ .cwd_path = cwd_path });
              build_root_initialized = true;
  
-@@ -1857,6 +1860,11 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1820,6 +1876,11 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
                  fatal("unable to determine name; fetched package has no build.zig.zon file", .{});
              break :name fetch.manifest.name;
          },
@@ -49,7 +109,7 @@ index 526ab1298a..e5c0a76e9e 100644
      };
  
      // The name to use in case the manifest file needs to be created now.
-@@ -1902,7 +1910,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1865,7 +1926,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
  
          switch (save) {
              .yes => saved_path_or_url = try arena.print("{f}", .{uri}),
@@ -58,23 +118,23 @@ index 526ab1298a..e5c0a76e9e 100644
          }
      }
  
-@@ -1930,6 +1938,16 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1891,6 +1952,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+         dependencies_init,
+     });
  
++    if (save == .assume) process.exit(ext_assume_saved(io, name, package_hash_slice, manifest, local_storage.pkg_root));
++
      if (manifest.dependencies.get(name)) |dep| {
          if (dep.hash) |h| {
-+            if (save == .assume) {
-+                if (mem.eql(u8, h, package_hash_slice)) {
-+                    log.info("fetched existing dependency named {q} from cache", .{name});
-+                    process.exit(0);
-+                } else {
-+                    log.warn("fetched existing dependency named {q} doesn't match zon", .{name});
-+                    log.warn("{q}", .{package_hash_slice});
-+                    process.exit(1);
-+                }
-+            }
              switch (dep.location) {
-                 .url => |u| {
-                     if (mem.eql(u8, h, package_hash_slice) and mem.eql(u8, u, saved_path_or_url)) {
+@@ -2060,6 +2123,7 @@ const usage_fetch =
+     \\  --save=[name]                 Add the fetched package to build.zig.zon as name
+     \\  --save-exact                  Add the fetched package to build.zig.zon, storing the URL verbatim
+     \\  --save-exact=[name]           Add the fetched package to build.zig.zon as name, storing the URL verbatim
++    \\  --assume-saved                (UNOFFICIAL) Used to fetch from local cache
+     \\
+ ;
+ 
 -- 
 2.56.0
 
