@@ -1,17 +1,17 @@
-From 601d6dae322e5a6024ccc3e876c2377a8df1628f Mon Sep 17 00:00:00 2001
+From 4de847965e06c7509e7d87883b7a1715cbc8e6dc Mon Sep 17 00:00:00 2001
 From: fnrir <fnr1r0@protonmail.com>
-Date: Wed, 28 Oct 2026 16:22:13 +0100
+Date: Wed, 21 Oct 2026 22:26:15 +0200
 Subject: [PATCH] feat(Maker): add fetch --assume-saved
 
 ---
- lib/compiler/Maker.zig | 68 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 66 insertions(+), 2 deletions(-)
+ lib/compiler/Maker.zig | 71 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 69 insertions(+), 2 deletions(-)
 
 diff --git a/lib/compiler/Maker.zig b/lib/compiler/Maker.zig
-index 12df472dea..e29f863163 100644
+index 526ab1298a..552ba0f611 100644
 --- a/lib/compiler/Maker.zig
 +++ b/lib/compiler/Maker.zig
-@@ -1656,6 +1656,59 @@ fn configure(graph: *Graph, options: ConfigureOptions) !ScannedConfig {
+@@ -1693,6 +1693,62 @@ fn configure(graph: *Graph, options: ConfigureOptions) !ScannedConfig {
      };
  }
  
@@ -51,7 +51,10 @@ index 12df472dea..e29f863163 100644
 +        return 0;
 +    };
 +    switch (chk_err) {
-+        .DepNotSaved => log.err("dependency {q} not saved in manifest", .{name}),
++        .DepNotSaved => {
++            log.warn("dependency {q} not saved in manifest", .{name});
++            return 0;
++        },
 +        .HashMismatch => |info| ext_err_hash_mismatch(info, name),
 +    }
 +    const root_handle = pkg_root.root_dir.handle;
@@ -71,7 +74,7 @@ index 12df472dea..e29f863163 100644
  fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
      const environ_map = &graph.environ_map;
      const io = graph.io;
-@@ -1670,6 +1723,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1707,6 +1763,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
          no,
          yes: ?[]const u8,
          exact: ?[]const u8,
@@ -79,7 +82,7 @@ index 12df472dea..e29f863163 100644
      } = .no;
  
      var arg_i: usize = 0;
-@@ -1694,6 +1748,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1731,6 +1788,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
                  save = .{ .exact = null };
              } else if (mem.cutPrefix(u8, arg, "--save-exact=")) |rest| {
                  save = .{ .exact = rest };
@@ -88,7 +91,7 @@ index 12df472dea..e29f863163 100644
              } else {
                  fatal("unrecognized parameter: {q}", .{arg});
              }
-@@ -1725,7 +1781,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1762,7 +1821,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
  
      const local_storage_ptr = switch (save) {
          .no => null,
@@ -97,7 +100,7 @@ index 12df472dea..e29f863163 100644
              build_root = try findBuildRoot(arena, io, .{ .cwd_path = cwd_path });
              build_root_initialized = true;
  
-@@ -1820,6 +1876,11 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1857,6 +1916,11 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
                  fatal("unable to determine name; fetched package has no build.zig.zon file", .{});
              break :name fetch.manifest.name;
          },
@@ -109,7 +112,7 @@ index 12df472dea..e29f863163 100644
      };
  
      // The name to use in case the manifest file needs to be created now.
-@@ -1865,7 +1926,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1902,7 +1966,7 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
  
          switch (save) {
              .yes => saved_path_or_url = try arena.print("{f}", .{uri}),
@@ -118,7 +121,7 @@ index 12df472dea..e29f863163 100644
          }
      }
  
-@@ -1891,6 +1952,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
+@@ -1928,6 +1992,8 @@ fn cmdFetch(gpa: Allocator, graph: *Graph, args: []const []const u8) !void {
          dependencies_init,
      });
  
@@ -127,7 +130,7 @@ index 12df472dea..e29f863163 100644
      if (manifest.dependencies.get(name)) |dep| {
          if (dep.hash) |h| {
              switch (dep.location) {
-@@ -2060,6 +2123,7 @@ const usage_fetch =
+@@ -2097,6 +2163,7 @@ const usage_fetch =
      \\  --save=[name]                 Add the fetched package to build.zig.zon as name
      \\  --save-exact                  Add the fetched package to build.zig.zon, storing the URL verbatim
      \\  --save-exact=[name]           Add the fetched package to build.zig.zon as name, storing the URL verbatim
