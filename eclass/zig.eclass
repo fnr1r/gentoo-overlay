@@ -503,7 +503,8 @@ zig_src_unpack() {
 	local zig_dep
 	if ver_test "${ZIG_SLOT}" -ge "0.17"; then
 		(cd "${S}"; for zig_dep in "${zig_deps[@]}"; do
-			ezig fetch --assume-saved "${DISTDIR}/${zig_dep}"
+		    # https://codeberg.org/gentoo/gentoo/pulls/2004#issuecomment-27258738
+			ezig fetch --save-exact="${zig_dep##-*}" "${DISTDIR}/${zig_dep}"
 		done)
 	elif ver_test "${ZIG_SLOT}" -ge "0.16"; then
 		# Two version-specific notes for 0.16.0:
